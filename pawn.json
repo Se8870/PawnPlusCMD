@@ -1,0 +1,9 @@
+{
+	"user": "AGraber",
+	"repo": "pawn-plus-commands",
+	"dependencies": [
+		"sampctl/samp-stdlib",
+		"IllidanS4/PawnPlus:v1.2",
+		"maddinat0r/sscanf:v2.8.3"
+	]
+}
