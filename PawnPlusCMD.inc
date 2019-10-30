@@ -77,6 +77,11 @@ const PPCMD_DEFAULT_FLAG = 0;
 	public pca@%0() \
 		RegisterCommandAlias(#%0, %1);
 
+// Usage macro
+#define usage:%0(%1); \
+	forward pcu@%0(); \
+	public pcu@%0() \
+		SetCommandUsageMessage(#%0, %1);
 
 // Some extra natives I might need that don't exist in PawnPlus yet
 
@@ -106,6 +111,8 @@ enum _:E_COMMAND_INFO
 	E_COMMAND_Flags,
 	bool:E_COMMAND_Disabled,
 	String:E_COMMAND_BaseCommand,
+	E_COMMAND_NoArgs,
+	String:E_COMMAND_UsageMessage,
 }
 
 enum E_COMMAND_RESULT
@@ -161,12 +168,12 @@ public _pp@on_init@PPCommands()
 		if(regex_results)
 		{
 			// Create command info array structure
-			new command_info[E_COMMAND_INFO];
-			new String:command_name = command_info[E_COMMAND_BaseCommand] = str_acquire(str_set_to_lower(list_get_str_s(regex_results, 1)));
+			new
+				command_info[E_COMMAND_INFO],
+				String:command_name = command_info[E_COMMAND_BaseCommand] = str_acquire(str_set_to_lower(list_get_str_s(regex_results, 1))),
+				String:command_usage = str_format(PPCMD_DEFAULT_USAGE_MESSAGE"%S", command_name);
 			// Encode index and save it for faster calls in the future
 			command_info[E_COMMAND_EncodedIndex] = amx_encode_public_name_s(public_name);
-
-			print_s(str_format("Command found: %S", command_name));
 
 			// Get an iterator containing the symbols (variables) of the function
 			// Navigate to the second last to ignore the playerid parameter
@@ -190,6 +197,8 @@ public _pp@on_init@PPCommands()
 			// String with sscanf specifiers for each variable
 			new String:sscanf_specifiers = str_new_static("");
 
+			new bool:no_args = true;
+
 			for(;iter_inside(debug_iterator);iter_move_previous(debug_iterator))
 			{
 				new Symbol:symbol = Symbol:iter_get(debug_iterator);
@@ -199,7 +208,8 @@ public _pp@on_init@PPCommands()
 				{
 					break;
 				}
-				print_s(str_format("Command parameter name: %S - addr: %d", debug_symbol_name_s(symbol), debug_symbol_addr(symbol)));
+
+				no_args = false;
 
 				new const symbol_kind:symbol_type = debug_symbol_kind(symbol);
 
@@ -235,10 +245,17 @@ public _pp@on_init@PPCommands()
 						str_append(sscanf_specifiers, str_new_static("d"));
 					}
 				}
+
+				str_append_format(command_usage, " [%S]", debug_symbol_name_s(symbol));
 			}
 
+
+			if(no_args)
+			{
+				command_info[E_COMMAND_NoArgs] = true;
+			}
 			// If only "s", don't build expression and passthrough params[]
-			if(sscanf_specifiers != single_str_param)
+			else if(sscanf_specifiers != single_str_param)
 			{
 				// Build the expression
 				// It's probably better to use expr_* calls instead of expr_parse,
@@ -249,11 +266,10 @@ public _pp@on_init@PPCommands()
 					call_specifier, sscanf_specifiers
 				);
 
-				print_s(str_format("Cached expression for command \"/%S\": %S", command_name, expression_string));
-
 				// Parse the expression, and then acquire it
 				command_info[E_COMMAND_SscanfExpression] = expr_acquire(expr_parse_s(expression_string));
 				command_info[E_COMMAND_VariantParameterList] = args;
+				command_info[E_COMMAND_UsageMessage] = str_acquire(command_usage);
 			}
 
 			// Add it to a pool
@@ -271,12 +287,9 @@ public _pp@on_init@PPCommands()
 	{
 		new String:public_name = amx_public_name_s(i);
 
-		// Public hook
-		new List:regex_results = str_extract(public_name, "^pcf@(.*?)$");
-		if(regex_results)
+		if(str_extract(public_name, "^pcf@.*?$"))
 		{
-			pawn_call_public_s(public_name, "");
-			list_delete(regex_results);
+			pawn_call_public(amx_encode_public(i), "");
 		}
 	}
 
@@ -285,11 +298,13 @@ public _pp@on_init@PPCommands()
 		new String:public_name = amx_public_name_s(i);
 
 		// Public hook
-		new List:regex_results = str_extract(public_name, "^pca@(.*?)$");
-		if(regex_results)
+		if(str_match(public_name, "^pca@.*?$"))
 		{
-			pawn_call_public_s(public_name, "");
-			list_delete(regex_results);
+			pawn_call_public(amx_encode_public(i), "");
+		}
+		else if(str_match(public_name, "^pcu@.*?$"))
+		{
+			pawn_call_public(amx_encode_public(i), "");
 		}
 	}
 }
@@ -322,6 +337,7 @@ public OnPlayerCommandText_PPHook(playerid, cmdtext[])
 	{
 		cmdtext[pos-1] = tolower(cmdtext[pos]);
 	}
+	cmdtext[pos-1] = 0;
 	#endif
 	while (cmdtext[pos] == ' ')
 	{
@@ -361,7 +377,19 @@ public OnPlayerCommandText_PPHook(playerid, cmdtext[])
 		{
 			new Expression:original_expression = command_info[E_COMMAND_SscanfExpression];
 
-			if(original_expression)
+			if(command_info[E_COMMAND_NoArgs])
+			{
+				return cmdtext[pos] == 0 ?
+				(CallLocalFunction(
+					"OnPlayerCommandPerformed", "dssddd", playerid, cmdtext, null_string,
+					flags, _:E_COMMAND_RESULT_Success, pawn_call_public(command_info[E_COMMAND_EncodedIndex], "d", playerid)
+				)) :
+				(CallLocalFunction(
+					"OnPlayerCommandPerformed", "dssddd", playerid, cmdtext, cmdtext[pos],
+					flags, _:E_COMMAND_RESULT_Success, pawn_call_public(command_info[E_COMMAND_EncodedIndex], "d", playerid)
+				));
+			}
+			else if(original_expression)
 			{
 				new List:buffer_list = command_info[E_COMMAND_VariantParameterList];
 
@@ -369,7 +397,6 @@ public OnPlayerCommandText_PPHook(playerid, cmdtext[])
 
 				for(new Iter:arg=list_iter(buffer_list); iter_inside(arg); iter_move_next(arg))
 				{
-					//print_s(str_format("val: %V", Variant:iter_get(arg)));
 					current_expression = expr_bind(current_expression, expr_const(_:var_addr_const(Variant:iter_get(arg))));
 				}
 
@@ -400,6 +427,21 @@ public OnPlayerCommandText_PPHook(playerid, cmdtext[])
 				}
 				else
 				{
+					if(cmdtext[pos] == 0)
+					{
+						pawn_call_public(
+							"OnPlayerCommandParsingFailed", "dssdS", playerid, cmdtext, null_string,
+							flags, command_info[E_COMMAND_UsageMessage]
+						);
+					}
+					else
+					{
+						pawn_call_public(
+							"OnPlayerCommandParsingFailed", "dssdS", playerid, cmdtext, cmdtext[pos],
+							flags, command_info[E_COMMAND_UsageMessage]
+						);
+					}
+
 					return cmdtext[pos] == 0 ? (CallLocalFunction(
 						"OnPlayerCommandPerformed", "dssddd", playerid, cmdtext, null_string,
 						flags, _:E_COMMAND_RESULT_ParsingFailed, 0
@@ -444,6 +486,7 @@ public OnPlayerCommandText_PPHook(playerid, cmdtext[])
 
 forward OnPlayerCommandReceived(playerid, cmd[], params[], flags);
 forward OnPlayerCommandPerformed(playerid, cmd[], params[], flags, E_COMMAND_RESULT:result, return_value);
+forward OnPlayerCommandParsingFailed(playerid, cmd[], params[], flags, usage[]);
 
 stock RegisterCommandAlias(const command[], ...)
 {
@@ -533,8 +576,27 @@ stock String:GetCommandBaseNameStr(const command[])
 	new command_info[E_COMMAND_INFO];
 	new const index = map_str_get(CommandMap, command);
 
-	pool_get_arr(CommandPool, index, command_info);
-	return command_info[E_COMMAND_BaseCommand];
+	return String:pool_get(CommandPool, index, _:E_COMMAND_BaseCommand);
+}
+
+stock SetCommandUsageMessage(const command[], const message[], message_size = sizeof message)
+{
+	if(!map_has_str_key(CommandMap, command))
+	{
+		printf("[PPCMD] GetCommandBaseNameStr: Command \"/%s\" doesn't exist", command);
+		return 0;
+	}
+
+	new const index = map_str_get(CommandMap, command);
+	new const String:old_message = String:pool_get(CommandPool, index, _:E_COMMAND_UsageMessage);
+
+	if(old_message)
+	{
+		str_release(old_message);
+	}
+
+	pool_set_cell(CommandPool, index, _:E_COMMAND_UsageMessage, str_acquire(str_new_static(message, .size = message_size)));
+	return 1;
 }
 
 stock GetCommandPool()
