@@ -23,13 +23,13 @@
 #endif
 
 #if !defined MAX_FUNC_NAME
-    // YSI definition
-    #if defined __COMPILER_sNAMEMAX
-        #define MAX_FUNC_NAME __COMPILER_sNAMEMAX
-    #else
-    // Assume 31
-        #define MAX_FUNC_NAME (31)
-    #endif
+	// YSI definition
+	#if defined __COMPILER_sNAMEMAX
+		#define MAX_FUNC_NAME __COMPILER_sNAMEMAX
+	#else
+	// Assume 31
+		#define MAX_FUNC_NAME (31)
+	#endif
 #endif
 
 const PPCMD_DEFAULT_FLAG = 0;
@@ -145,9 +145,9 @@ public _pp@on_init@PPCommands()
 
 	// Get the count of public functions
 	new const
-        public_count = amx_num_publics(),
-        String:single_str_param = str_new_static("s")
-    ;
+		public_count = amx_num_publics(),
+		String:single_str_param = str_new_static("s")
+	;
 
 	// Loop to find every command
 	for(new i; i < public_count; ++i)
@@ -162,7 +162,7 @@ public _pp@on_init@PPCommands()
 		{
 			// Create command info array structure
 			new command_info[E_COMMAND_INFO];
-            new String:command_name = command_info[E_COMMAND_BaseCommand] = str_acquire(str_set_to_lower(list_get_str_s(regex_results, 1)));
+			new String:command_name = command_info[E_COMMAND_BaseCommand] = str_acquire(str_set_to_lower(list_get_str_s(regex_results, 1)));
 			// Encode index and save it for faster calls in the future
 			command_info[E_COMMAND_EncodedIndex] = amx_encode_public_name_s(public_name);
 
@@ -237,24 +237,24 @@ public _pp@on_init@PPCommands()
 				}
 			}
 
-            // If only "s", don't build expression and passthrough params[]
-            if(sscanf_specifiers != single_str_param)
-            {
-                // Build the expression
-                // It's probably better to use expr_* calls instead of expr_parse,
-                // but I couldn't figure it out and just wanted to have a working
-                // prototype for now. Hopefully I'll change this in the future
-                new String:expression_string = str_format(
-                    "pawn_call_native(char:\"sscanf\", char:\"%S\", $arg0, char:\"%S\", $args1)",
-                    call_specifier, sscanf_specifiers
-                );
+			// If only "s", don't build expression and passthrough params[]
+			if(sscanf_specifiers != single_str_param)
+			{
+				// Build the expression
+				// It's probably better to use expr_* calls instead of expr_parse,
+				// but I couldn't figure it out and just wanted to have a working
+				// prototype for now. Hopefully I'll change this in the future
+				new String:expression_string = str_format(
+					"pawn_call_native(char:\"sscanf\", char:\"%S\", $arg0, char:\"%S\", $args1)",
+					call_specifier, sscanf_specifiers
+				);
 
-                print_s(str_format("Cached expression for command \"/%S\": %S", command_name, expression_string));
+				print_s(str_format("Cached expression for command \"/%S\": %S", command_name, expression_string));
 
-                // Parse the expression, and then acquire it
-                command_info[E_COMMAND_SscanfExpression] = expr_acquire(expr_parse_s(expression_string));
-                command_info[E_COMMAND_VariantParameterList] = args;
-            }
+				// Parse the expression, and then acquire it
+				command_info[E_COMMAND_SscanfExpression] = expr_acquire(expr_parse_s(expression_string));
+				command_info[E_COMMAND_VariantParameterList] = args;
+			}
 
 			// Add it to a pool
 			new const index = pool_add_arr(CommandPool, command_info);
@@ -312,17 +312,17 @@ public OnPlayerCommandText_PPHook(playerid, cmdtext[])
 {
 	new pos;
 
-    #if defined PPCMD_NO_PREFIX
-    while(cmdtext[pos] > ' ')
-    {
-        cmdtext[pos] = tolower(cmdtext[pos++]);
-    }
-    #else
+	#if defined PPCMD_NO_PREFIX
+	while(cmdtext[pos] > ' ')
+	{
+		cmdtext[pos] = tolower(cmdtext[pos++]);
+	}
+	#else
 	while (cmdtext[++pos] > ' ')
 	{
 		cmdtext[pos-1] = tolower(cmdtext[pos]);
 	}
-    #endif
+	#endif
 	while (cmdtext[pos] == ' ')
 	{
 		cmdtext[pos++] = 0;
@@ -361,69 +361,69 @@ public OnPlayerCommandText_PPHook(playerid, cmdtext[])
 		{
 			new Expression:original_expression = command_info[E_COMMAND_SscanfExpression];
 
-            if(original_expression)
-            {
-                new List:buffer_list = command_info[E_COMMAND_VariantParameterList];
+			if(original_expression)
+			{
+				new List:buffer_list = command_info[E_COMMAND_VariantParameterList];
 
-                new Expression:current_expression = expr_bind(original_expression, expr_const_str(cmdtext[pos]));
+				new Expression:current_expression = expr_bind(original_expression, expr_const_str(cmdtext[pos]));
 
-                for(new Iter:arg=list_iter(buffer_list); iter_inside(arg); iter_move_next(arg))
-                {
-                    //print_s(str_format("val: %V", Variant:iter_get(arg)));
-                    current_expression = expr_bind(current_expression, expr_const(_:var_addr_const(Variant:iter_get(arg))));
-                }
+				for(new Iter:arg=list_iter(buffer_list); iter_inside(arg); iter_move_next(arg))
+				{
+					//print_s(str_format("val: %V", Variant:iter_get(arg)));
+					current_expression = expr_bind(current_expression, expr_const(_:var_addr_const(Variant:iter_get(arg))));
+				}
 
-                new const sscanf_result = expr_get(current_expression);
+				new const sscanf_result = expr_get(current_expression);
 
-                if(sscanf_result == 0)
-                {
-                    new List:arguments_list = list_new();
+				if(sscanf_result == 0)
+				{
+					new List:arguments_list = list_new();
 
-                    for(new Iter:arg=list_iter(buffer_list);iter_inside(arg);iter_move_next(arg))
-                    {
-                        list_add_var(arguments_list, Variant:iter_get(arg));
-                    }
+					for(new Iter:arg=list_iter(buffer_list);iter_inside(arg);iter_move_next(arg))
+					{
+						list_add_var(arguments_list, Variant:iter_get(arg));
+					}
 
-                    new const return_value = cmdtext[pos] == 0 ?
-                    (CallLocalFunction(
-                        "OnPlayerCommandPerformed", "dssddd", playerid, cmdtext, null_string,
-                        flags, _:E_COMMAND_RESULT_Success, pawn_call_public(command_info[E_COMMAND_EncodedIndex], "dl", playerid, arguments_list)
-                    )) :
-                    (CallLocalFunction(
-                        "OnPlayerCommandPerformed", "dssddd", playerid, cmdtext, cmdtext[pos],
-                        flags, _:E_COMMAND_RESULT_Success, pawn_call_public(command_info[E_COMMAND_EncodedIndex], "dl", playerid, arguments_list)
-                    ));
+					new const return_value = cmdtext[pos] == 0 ?
+					(CallLocalFunction(
+						"OnPlayerCommandPerformed", "dssddd", playerid, cmdtext, null_string,
+						flags, _:E_COMMAND_RESULT_Success, pawn_call_public(command_info[E_COMMAND_EncodedIndex], "dl", playerid, arguments_list)
+					)) :
+					(CallLocalFunction(
+						"OnPlayerCommandPerformed", "dssddd", playerid, cmdtext, cmdtext[pos],
+						flags, _:E_COMMAND_RESULT_Success, pawn_call_public(command_info[E_COMMAND_EncodedIndex], "dl", playerid, arguments_list)
+					));
 
-                    list_delete(arguments_list);
+					list_delete(arguments_list);
 
-                    return return_value;
-                }
-                else
-                {
-                    return cmdtext[pos] == 0 ? (CallLocalFunction(
-                        "OnPlayerCommandPerformed", "dssddd", playerid, cmdtext, null_string,
-                        flags, _:E_COMMAND_RESULT_ParsingFailed, 0
-                    )) :
-                    (CallLocalFunction(
-                        "OnPlayerCommandPerformed", "dssddd", playerid, cmdtext, cmdtext[pos],
-                        flags, _:E_COMMAND_RESULT_ParsingFailed, 0
-                    ));
-                }
+					return return_value;
+				}
+				else
+				{
+					return cmdtext[pos] == 0 ? (CallLocalFunction(
+						"OnPlayerCommandPerformed", "dssddd", playerid, cmdtext, null_string,
+						flags, _:E_COMMAND_RESULT_ParsingFailed, 0
+					)) :
+					(CallLocalFunction(
+						"OnPlayerCommandPerformed", "dssddd", playerid, cmdtext, cmdtext[pos],
+						flags, _:E_COMMAND_RESULT_ParsingFailed, 0
+					));
+				}
 			}
-            else
-            {
-                new const return_value = cmdtext[pos] == 0 ?
-                (CallLocalFunction(
-                    "OnPlayerCommandPerformed", "dssddd", playerid, cmdtext, null_string,
-                    flags, _:E_COMMAND_RESULT_Success, pawn_call_public(command_info[E_COMMAND_EncodedIndex], "ds", playerid, null_string)
-                )) :
-                (CallLocalFunction(
-                    "OnPlayerCommandPerformed", "dssddd", playerid, cmdtext, cmdtext[pos],
-                    flags, _:E_COMMAND_RESULT_Success, pawn_call_public(command_info[E_COMMAND_EncodedIndex], "ds", playerid, cmdtext[pos])
-                ));
+			else
+			{
+				new const return_value = cmdtext[pos] == 0 ?
+				(CallLocalFunction(
+					"OnPlayerCommandPerformed", "dssddd", playerid, cmdtext, null_string,
+					flags, _:E_COMMAND_RESULT_Success, pawn_call_public(command_info[E_COMMAND_EncodedIndex], "ds", playerid, null_string)
+				)) :
+				(CallLocalFunction(
+					"OnPlayerCommandPerformed", "dssddd", playerid, cmdtext, cmdtext[pos],
+					flags, _:E_COMMAND_RESULT_Success, pawn_call_public(command_info[E_COMMAND_EncodedIndex], "ds", playerid, cmdtext[pos])
+				));
 
-                return return_value;
-            }
+				return return_value;
+			}
 		}
 		return 0;
 	}
@@ -507,7 +507,7 @@ stock SetCommandFlags(const command[], flags)
 
 stock GetCommandBaseName(const command[], base_command[], size = sizeof base_command)
 {
-    if(!map_has_str_key(CommandMap, command))
+	if(!map_has_str_key(CommandMap, command))
 	{
 		printf("[PPCMD] GetCommandBaseName: Command \"/%s\" doesn't exist", command);
 		return 0;
@@ -519,12 +519,12 @@ stock GetCommandBaseName(const command[], base_command[], size = sizeof base_com
 	pool_get_arr(CommandPool, index, command_info);
 	str_get(command_info[E_COMMAND_BaseCommand], base_command, size);
 
-    return 1;
+	return 1;
 }
 
 stock String:GetCommandBaseNameStr(const command[])
 {
-    if(!map_has_str_key(CommandMap, command))
+	if(!map_has_str_key(CommandMap, command))
 	{
 		printf("[PPCMD] GetCommandBaseNameStr: Command \"/%s\" doesn't exist", command);
 		return INVALID_STRING;
@@ -539,5 +539,5 @@ stock String:GetCommandBaseNameStr(const command[])
 
 stock GetCommandPool()
 {
-    return CommandPool;
+	return CommandPool;
 }
