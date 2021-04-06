@@ -147,6 +147,13 @@ public _pp@on_init@PPCommands()
 		// so for now this will do
 	}
 
+	// Why this required? because when you are not declaring this, it always return false
+	// which can leads OnPlayerCommandText to show "SERVER: Unknown Command".
+	// So, in this case we're creating it if not exists and we can use it freely.
+	if(funcidx("OnPlayerCommandReceived") == -1) pawn_create_callback("OnPlayerCommandReceived", expr_true());
+	if(funcidx("OnPlayerCommandPerformed") == -1) pawn_create_callback("OnPlayerCommandPerformed", expr_true());
+	if(funcidx("OnPlayerCommandParsingFailed") == -1) pawn_create_callback("OnPlayerCommandParsingFailed", expr_true());
+
 	// Now hook the callback itself. 
 	OnPlayerCmdHook = pawn_register_callback("OnPlayerCommandText", #OnPlayerCommandText_PPHook);
 
