@@ -1,6 +1,6 @@
 # pawn-plus-commands
 
-[![sampctl](https://shields.southcla.ws/badge/sampctl-pawn--plus--commands-2f2f2f.svg?style=for-the-badge)](https://github.com/AGraber/pawn-plus-commands)
+[![sampctl](https://img.shields.io/badge/sampctl-pawn--plus--commands-2f2f2f.svg?style=for-the-badge)](https://github.com/AGraber/PawnPlusCMD)
 
 <!--
 Short description of your library, why it's useful, some examples, pictures or
